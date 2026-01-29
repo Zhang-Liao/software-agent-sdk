@@ -481,34 +481,10 @@ class View(BaseModel):
                     break
 
         if summary is not None and summary_offset is not None:
-            try:
-                logger.debug(f"Inserting summary at offset {summary_offset}")
-                
-                _new_summary_event = CondensationSummaryEvent(summary=summary)
-                
-                # FIX: 边界检查防止IndexError
-                if summary_offset < 0:
-                    logger.warning(
-                        f"Summary offset {summary_offset} is negative. Adjusting to 0."
-                    )
-                    summary_offset = 0
-                elif summary_offset > len(kept_events):
-                    logger.warning(
-                        f"Summary offset {summary_offset} exceeds kept_events length {len(kept_events)}. "
-                        f"Appending summary at end instead."
-                    )
-                    summary_offset = len(kept_events)
-                
-                kept_events.insert(summary_offset, _new_summary_event)
-                logger.debug(f"Successfully inserted summary at adjusted offset {summary_offset}")
-                
-            except (IndexError, ValueError) as e:
-                # 最后的防线：如果还是出错，就append到末尾
-                logger.error(
-                    f"Failed to insert summary at offset {summary_offset}: {e}. "
-                    f"Appending to end as fallback."
-                )
-                kept_events.append(_new_summary_event)
+            logger.debug(f"Inserting summary at offset {summary_offset}")
+
+            _new_summary_event = CondensationSummaryEvent(summary=summary)
+            kept_events.insert(summary_offset, _new_summary_event)
 
         # Check for an unhandled condensation request -- these are events closer to the
         # end of the list than any condensation action.

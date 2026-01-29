@@ -28,6 +28,20 @@ class ToolPreloadService:
             return True
 
         self.running = True
+        
+        # Pre-creating all *WithRisk classes prevents processing which costs
+        # significant time per tool on the first conversation invocation.
+        # This MUST run even if browser preload fails, because model_rebuild
+        # needs these classes to exist when parsing Action union types.
+        try:
+            for action_type in get_known_concrete_subclasses(Action):
+                create_action_type_with_risk(action_type)
+            _logger.debug("Pre-created all Action WithRisk classes")
+        except Exception:
+            _logger.exception("Error creating WithRisk classes")
+            return False
+        
+        # Try to preload browser (optional, can fail without affecting other tools)
         try:
             if sys.platform == "win32":
                 from openhands.tools.browser_use.impl_windows import (
@@ -38,17 +52,11 @@ class ToolPreloadService:
 
             # Creating an instance here to preload chomium
             BrowserToolExecutor()
-
-            # Pre-creating all these classes prevents processing which costs
-            # significant time per tool on the first conversation invocation.
-            for action_type in get_known_concrete_subclasses(Action):
-                create_action_type_with_risk(action_type)
-
             _logger.debug(f"Loaded {BrowserToolExecutor}")
-            return True
         except Exception:
-            _logger.exception("Error preloading chromium")
-            return False
+            _logger.warning("Browser preload failed (this is optional and won't affect other tools)")
+            
+        return True
 
     async def stop(self) -> None:
         """Stop the tool preload process."""

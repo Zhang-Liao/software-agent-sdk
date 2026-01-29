@@ -465,8 +465,9 @@ def create_action_type_with_risk(action_type: type[Schema]) -> type[Schema]:
     if action_type_with_risk:
         return action_type_with_risk
 
+    class_name = f"{action_type.__name__}WithRisk"
     action_type_with_risk = type(
-        f"{action_type.__name__}WithRisk",
+        class_name,
         (action_type,),
         {
             "security_risk": Field(
@@ -477,5 +478,12 @@ def create_action_type_with_risk(action_type: type[Schema]) -> type[Schema]:
             "__annotations__": {"security_risk": risk.SecurityRisk},
         },
     )
+    
+    # Register the dynamically created class in the module's namespace
+    # so Pydantic can find it during serialization/deserialization
+    action_type_with_risk.__module__ = action_type.__module__
+    import sys
+    sys.modules[action_type.__module__].__dict__[class_name] = action_type_with_risk
+    
     _action_types_with_risk[action_type] = action_type_with_risk
     return action_type_with_risk

@@ -216,10 +216,12 @@ class DockerWorkspace(RemoteWorkspace):
             flags += ["--gpus", "all"]
 
         # Run container
+        # Try with platform first, fallback to no platform if it fails (for macOS ARM64 compatibility)
         run_cmd = [
             "docker",
             "run",
             "-d",
+            "--pull=never",  # Force use of local images only, don't attempt remote pull
             "--platform",
             self.platform,
             "--rm",
@@ -234,10 +236,89 @@ class DockerWorkspace(RemoteWorkspace):
         ]
         proc = execute_command(run_cmd)
         if proc.returncode != 0:
-            raise RuntimeError(f"Failed to run docker container: {proc.stderr}")
+            # If platform mismatch error, try without platform specification
+            # Docker Desktop on macOS can automatically handle architecture conversion
+            error_msg = proc.stderr.lower()
+            if "platform" in error_msg or "does not provide the specified platform" in error_msg:
+                logger.warning(
+                    f"Failed to run container with platform {self.platform}, "
+                    "attempting without platform specification (Docker Desktop will auto-detect)"
+                )
+                # Retry without platform specification
+                run_cmd_no_platform = [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--pull=never",
+                    "--rm",
+                    "--name",
+                    f"agent-server-{uuid.uuid4()}",
+                    *flags,
+                    image,
+                    "--host",
+                    "0.0.0.0",
+                    "--port",
+                    "8000",
+                ]
+                proc = execute_command(run_cmd_no_platform)
+                if proc.returncode != 0:
+                    raise RuntimeError(f"Failed to run docker container: {proc.stderr}")
+            else:
+                raise RuntimeError(f"Failed to run docker container: {proc.stderr}")
 
         self._container_id = proc.stdout.strip()
         logger.info("Started container: %s", self._container_id)
+
+        # Immediately check if container is actually running
+        # (sometimes containers exit immediately on startup)
+        time.sleep(0.5)  # Brief wait for container to start
+        ps_check = execute_command(
+            [
+                "docker",
+                "inspect",
+                "-f",
+                "{{.State.Running}}",
+                self._container_id,
+            ]
+        )
+        if ps_check.returncode == 0 and ps_check.stdout.strip() != "true":
+            # Container already stopped - get details immediately
+            container_info = execute_command(
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{.State.Status}}\n{{.State.Error}}\n{{.State.ExitCode}}\n{{.State.FinishedAt}}",
+                    self._container_id,
+                ]
+            )
+            status_info = container_info.stdout.strip().split("\n")
+            status = status_info[0] if len(status_info) > 0 else "unknown"
+            error = status_info[1] if len(status_info) > 1 else ""
+            exit_code = status_info[2] if len(status_info) > 2 else "unknown"
+            finished_at = status_info[3] if len(status_info) > 3 else ""
+            
+            # Try to get logs immediately
+            logs_result = execute_command(["docker", "logs", self._container_id])
+            logs_output = logs_result.stdout if logs_result.returncode == 0 else ""
+            logs_error = logs_result.stderr if logs_result.returncode != 0 else ""
+            
+            msg_parts = [
+                f"Container exited immediately after startup (status={status}, exit_code={exit_code})"
+            ]
+            if finished_at:
+                msg_parts.append(f"Finished at: {finished_at}")
+            if error:
+                msg_parts.append(f"Error: {error}")
+            if logs_output:
+                msg_parts.append(f"Container logs:\n{logs_output}")
+            if logs_error:
+                msg_parts.append(f"Failed to retrieve logs: {logs_error}")
+            if not logs_output and not error:
+                msg_parts.append("(No error message or logs available - container may have crashed on startup)")
+            
+            msg = "\n".join(msg_parts)
+            raise RuntimeError(msg)
 
         # Optionally stream logs in background
         if self.detach_logs:
@@ -311,11 +392,39 @@ class DockerWorkspace(RemoteWorkspace):
                     ]
                 )
                 if ps.stdout.strip() != "true":
-                    logs = execute_command(["docker", "logs", self._container_id])
-                    msg = (
-                        "Container stopped unexpectedly. Logs:\n"
-                        f"{logs.stdout}\n{logs.stderr}"
+                    # Container stopped - try to get detailed info before it's removed
+                    container_info = execute_command(
+                        [
+                            "docker",
+                            "inspect",
+                            "-f",
+                            "{{.State.Status}}\n{{.State.Error}}\n{{.State.ExitCode}}",
+                            self._container_id,
+                        ]
                     )
+                    status_info = container_info.stdout.strip().split("\n")
+                    status = status_info[0] if len(status_info) > 0 else "unknown"
+                    error = status_info[1] if len(status_info) > 1 else ""
+                    exit_code = status_info[2] if len(status_info) > 2 else "unknown"
+                    
+                    # Try to get logs immediately before container is removed by --rm
+                    logs_result = execute_command(["docker", "logs", self._container_id])
+                    logs_output = logs_result.stdout if logs_result.returncode == 0 else ""
+                    logs_error = logs_result.stderr if logs_result.returncode != 0 else ""
+                    
+                    msg_parts = [
+                        f"Container stopped unexpectedly (status={status}, exit_code={exit_code})"
+                    ]
+                    if error:
+                        msg_parts.append(f"Error: {error}")
+                    if logs_output:
+                        msg_parts.append(f"Container logs:\n{logs_output}")
+                    if logs_error:
+                        msg_parts.append(f"Failed to retrieve logs: {logs_error}")
+                    if not logs_output and not logs_error:
+                        msg_parts.append("(Container may have been removed before logs could be retrieved)")
+                    
+                    msg = "\n".join(msg_parts)
                     raise RuntimeError(msg)
             time.sleep(1)
         raise RuntimeError("Container failed to become healthy in time")

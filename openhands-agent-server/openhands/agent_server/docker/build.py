@@ -543,7 +543,9 @@ def build(opts: BuildOptions) -> list[str]:
     if push:
         args += ["--platform", ",".join(opts.platforms), "--push"]
     else:
-        args += ["--load"]
+        # Local load also needs --platform to ensure correct architecture
+        # Without it, buildx may use the local architecture (e.g., ARM64) instead of the specified platform
+        args += ["--platform", ",".join(opts.platforms), "--load"]
 
     for t in tags:
         args += ["--tag", t]
