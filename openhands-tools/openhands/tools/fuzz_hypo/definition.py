@@ -185,6 +185,12 @@ Before calling this tool, you MUST create a simple wrapper function in a test fi
 This is because the original function may have complex signatures (class methods, 
 special methods like __new__, multiple parameters, etc.) that are hard to fuzz directly.
 
+SWE-bench note: keep scratch files untracked.
+-------------------------------------------
+If you are running inside SWE-bench-style evaluation, avoid adding temporary wrapper files
+to the final git patch. Put wrappers under an ignored directory such as `.fuzz_hypo/` or
+`.openhands/` (recommended) so `git add -A` in the repo won't pick them up.
+
 Steps:
 1. Create a test file (e.g., `test_fuzz_wrapper.py`) in the workspace
 2. In the file, import the target function/class and create a simple wrapper:

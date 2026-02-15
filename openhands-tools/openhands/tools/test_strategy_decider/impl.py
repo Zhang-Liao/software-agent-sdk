@@ -153,7 +153,22 @@ class TestStrategyDeciderExecutor(
         # Walk parents from this file to find the benchmarks path in monorepo layout.
         here = Path(__file__).resolve()
         for p in here.parents:
-            candidates.append(p / "benchmarks" / "swebench" / "prompts" / "hypothesis_default_lz.j2")
+            # Preferred: small dedicated rubric file
+            candidates.append(
+                p
+                / "benchmarks"
+                / "swebench"
+                / "prompts"
+                / "test_strategy_rubric.md"
+            )
+            # Backwards compatible: older rubric co-located in the prompt template
+            candidates.append(
+                p
+                / "benchmarks"
+                / "swebench"
+                / "prompts"
+                / "hypothesis_default_lz.j2"
+            )
 
         for c in candidates:
             try:
