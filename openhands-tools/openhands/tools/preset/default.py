@@ -23,10 +23,12 @@ def register_default_tools(enable_browser: bool = True) -> None:
     from openhands.tools.file_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
     from openhands.tools.terminal import TerminalTool
+    from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
 
     logger.debug(f"Tool: {TerminalTool.name} registered.")
     logger.debug(f"Tool: {FileEditorTool.name} registered.")
     logger.debug(f"Tool: {TaskTrackerTool.name} registered.")
+    logger.debug(f"Tool: {TestStrategyDeciderTool.name} registered.")
 
     if enable_browser:
         from openhands.tools.browser_use import BrowserToolSet
@@ -82,12 +84,14 @@ def get_default_tools(
     from openhands.tools.file_editor import FileEditorTool
     from openhands.tools.task_tracker import TaskTrackerTool
     from openhands.tools.terminal import TerminalTool
+    from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
 
     # Default tools (always included)
     tools = [
         Tool(name=TerminalTool.name),
         Tool(name=FileEditorTool.name),
         Tool(name=TaskTrackerTool.name),
+        Tool(name=TestStrategyDeciderTool.name),
     ]
     
     if enable_browser:
