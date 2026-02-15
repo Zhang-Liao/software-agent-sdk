@@ -20,7 +20,9 @@ EXTRA_TOOL_NAMES = {"fuzz_hypo", "fuzz_hypo_agent", "fuzz_hypo_v2"}
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools (always available)."""
     # Tools are now automatically registered when imported
+    from openhands.tools.assertion_test import AssertionTestTool
     from openhands.tools.file_editor import FileEditorTool
+    from openhands.tools.simple_test import SimpleTestTool
     from openhands.tools.task_tracker import TaskTrackerTool
     from openhands.tools.terminal import TerminalTool
     from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
@@ -29,6 +31,8 @@ def register_default_tools(enable_browser: bool = True) -> None:
     logger.debug(f"Tool: {FileEditorTool.name} registered.")
     logger.debug(f"Tool: {TaskTrackerTool.name} registered.")
     logger.debug(f"Tool: {TestStrategyDeciderTool.name} registered.")
+    logger.debug(f"Tool: {SimpleTestTool.name} registered.")
+    logger.debug(f"Tool: {AssertionTestTool.name} registered.")
 
     if enable_browser:
         from openhands.tools.browser_use import BrowserToolSet
@@ -81,7 +85,9 @@ def get_default_tools(
     register_extra_tools(extra_tools)
 
     # Import tools to access their name attributes
+    from openhands.tools.assertion_test import AssertionTestTool
     from openhands.tools.file_editor import FileEditorTool
+    from openhands.tools.simple_test import SimpleTestTool
     from openhands.tools.task_tracker import TaskTrackerTool
     from openhands.tools.terminal import TerminalTool
     from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
@@ -92,6 +98,8 @@ def get_default_tools(
         Tool(name=FileEditorTool.name),
         Tool(name=TaskTrackerTool.name),
         Tool(name=TestStrategyDeciderTool.name),
+        Tool(name=SimpleTestTool.name),
+        Tool(name=AssertionTestTool.name),
     ]
     
     if enable_browser:
