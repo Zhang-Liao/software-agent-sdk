@@ -14,25 +14,30 @@ logger = get_logger(__name__)
 
 # Define which tools are "extra" (not included by default)
 # These tools must be explicitly enabled via --extra-tools
-EXTRA_TOOL_NAMES = {"fuzz_hypo", "fuzz_hypo_agent", "fuzz_hypo_v2"}
+EXTRA_TOOL_NAMES = {
+    # Fuzzing tools
+    "fuzz_hypo",
+    "fuzz_hypo_agent",
+    "fuzz_hypo_v2",
+    # Delegation tool (CLI name: subagent; internal tool name: delegate)
+    "subagent",
+    # Test tooling (now opt-in)
+    "test_strategy_decider",
+    "assertion_test",
+    "simple_test",
+}
 
 
 def register_default_tools(enable_browser: bool = True) -> None:
     """Register the default set of tools (always available)."""
     # Tools are now automatically registered when imported
-    from openhands.tools.assertion_test import AssertionTestTool
     from openhands.tools.file_editor import FileEditorTool
-    from openhands.tools.simple_test import SimpleTestTool
     from openhands.tools.task_tracker import TaskTrackerTool
     from openhands.tools.terminal import TerminalTool
-    from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
 
     logger.debug(f"Tool: {TerminalTool.name} registered.")
     logger.debug(f"Tool: {FileEditorTool.name} registered.")
     logger.debug(f"Tool: {TaskTrackerTool.name} registered.")
-    logger.debug(f"Tool: {TestStrategyDeciderTool.name} registered.")
-    logger.debug(f"Tool: {SimpleTestTool.name} registered.")
-    logger.debug(f"Tool: {AssertionTestTool.name} registered.")
 
     if enable_browser:
         from openhands.tools.browser_use import BrowserToolSet
@@ -45,12 +50,18 @@ def register_extra_tools(tool_names: list[str] | None = None) -> None:
     
     Args:
         tool_names: List of extra tool names to register. If None, no extra tools
-                   are registered. Valid names: fuzz_hypo, fuzz_hypo_agent, fuzz_hypo_v2
+                   are registered.
     """
     if not tool_names:
         return
     
     tool_names_lower = {name.lower() for name in tool_names}
+
+    if "subagent" in tool_names_lower:
+        from openhands.tools.delegate import DelegateTool
+        logger.debug(
+            f"Extra tool: {DelegateTool.name} registered (enabled via --extra-tools subagent)."
+        )
     
     if "fuzz_hypo" in tool_names_lower:
         from openhands.tools.fuzz_hypo import FuzzHypoTool
@@ -63,6 +74,18 @@ def register_extra_tools(tool_names: list[str] | None = None) -> None:
     if "fuzz_hypo_v2" in tool_names_lower:
         from openhands.tools.fuzz_hypo_v2 import FuzzHypoV2Tool
         logger.debug(f"Extra tool: {FuzzHypoV2Tool.name} registered.")
+
+    if "test_strategy_decider" in tool_names_lower:
+        from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
+        logger.debug(f"Extra tool: {TestStrategyDeciderTool.name} registered.")
+
+    if "assertion_test" in tool_names_lower:
+        from openhands.tools.assertion_test import AssertionTestTool
+        logger.debug(f"Extra tool: {AssertionTestTool.name} registered.")
+
+    if "simple_test" in tool_names_lower:
+        from openhands.tools.simple_test import SimpleTestTool
+        logger.debug(f"Extra tool: {SimpleTestTool.name} registered.")
 
 
 def get_available_extra_tools() -> list[str]:
@@ -79,27 +102,22 @@ def get_default_tools(
     Args:
         enable_browser: Whether to include browser tools.
         extra_tools: List of extra tool names to include. These are tools not
-                    enabled by default. Valid names: fuzz_hypo, fuzz_hypo_agent, fuzz_hypo_v2
+                    enabled by default. Examples: fuzz_hypo, fuzz_hypo_agent, fuzz_hypo_v2,
+                    subagent, test_strategy_decider, assertion_test, simple_test.
     """
     register_default_tools(enable_browser=enable_browser)
     register_extra_tools(extra_tools)
 
     # Import tools to access their name attributes
-    from openhands.tools.assertion_test import AssertionTestTool
     from openhands.tools.file_editor import FileEditorTool
-    from openhands.tools.simple_test import SimpleTestTool
     from openhands.tools.task_tracker import TaskTrackerTool
     from openhands.tools.terminal import TerminalTool
-    from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
 
     # Default tools (always included)
     tools = [
         Tool(name=TerminalTool.name),
         Tool(name=FileEditorTool.name),
         Tool(name=TaskTrackerTool.name),
-        Tool(name=TestStrategyDeciderTool.name),
-        Tool(name=SimpleTestTool.name),
-        Tool(name=AssertionTestTool.name),
     ]
     
     if enable_browser:
@@ -109,6 +127,11 @@ def get_default_tools(
     # Add extra tools if requested
     if extra_tools:
         extra_tools_lower = {name.lower() for name in extra_tools}
+
+        if "subagent" in extra_tools_lower:
+            from openhands.tools.delegate import DelegateTool
+            tools.append(Tool(name=DelegateTool.name))
+            logger.info(f"Added extra tool: {DelegateTool.name} (via --extra-tools subagent)")
         
         if "fuzz_hypo" in extra_tools_lower:
             from openhands.tools.fuzz_hypo import FuzzHypoTool
@@ -124,6 +147,21 @@ def get_default_tools(
             from openhands.tools.fuzz_hypo_v2 import FuzzHypoV2Tool
             tools.append(Tool(name=FuzzHypoV2Tool.name))
             logger.info(f"Added extra tool: {FuzzHypoV2Tool.name}")
+
+        if "test_strategy_decider" in extra_tools_lower:
+            from openhands.tools.test_strategy_decider import TestStrategyDeciderTool
+            tools.append(Tool(name=TestStrategyDeciderTool.name))
+            logger.info(f"Added extra tool: {TestStrategyDeciderTool.name}")
+
+        if "assertion_test" in extra_tools_lower:
+            from openhands.tools.assertion_test import AssertionTestTool
+            tools.append(Tool(name=AssertionTestTool.name))
+            logger.info(f"Added extra tool: {AssertionTestTool.name}")
+
+        if "simple_test" in extra_tools_lower:
+            from openhands.tools.simple_test import SimpleTestTool
+            tools.append(Tool(name=SimpleTestTool.name))
+            logger.info(f"Added extra tool: {SimpleTestTool.name}")
     
     return tools
 
